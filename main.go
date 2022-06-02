@@ -18,8 +18,10 @@ import (
 	_ "github.com/ipld/go-ipld-prime/codec/dagcbor"
 	ipldcodec "github.com/ipld/go-ipld-prime/multicodec"
 	"github.com/multiformats/go-multicodec"
-	mh "github.com/multiformats/go-multihash"
+	//mh "github.com/multiformats/go-multihash"
 	peer "github.com/libp2p/go-libp2p-core/peer"
+	ic "github.com/libp2p/go-libp2p-core/crypto"
+	cryptopb "github.com/libp2p/go-libp2p-core/crypto/pb"
 )
 
 const (
@@ -161,26 +163,34 @@ func main() {
 	sig2V2 := ted25519.TSign(messageV2, secretShares[1], pub, nonceShares[1], noncePub)
 	sig3V2 := ted25519.TSign(messageV2, secretShares[2], pub, nonceShares[2], noncePub)*/
 	
-	var alg uint64 = mh.IDENTITY
+	pubKey := new(cryptopb.PublicKey)
+	pubKey.Type = cryptopb.KeyType_Ed25519
+	pubKey.Data = pub.Bytes()
 	
-	ipnshash, _ := mh.Sum(pub.Bytes(), alg, -1)
-	ipnsid := peer.ToCid(peer.ID(ipnshash))
+	cryptoPubKey, _ := ic.PublicKeyFromProto(pubKey)
+	
+	ipnsid, _ := peer.IDFromPublicKey(cryptoPubKey)
+	ipnsaddr := fmt.Sprintf("/ipns/%s", ipnsid)
 	
 	fmt.Printf("Public key: %x\n", pub.Bytes())
-	fmt.Printf("IPNS Address: /ipns/%s\n", ipnsid)
+	fmt.Printf("IPNS Address: %s\n", ipnsaddr)
 
 	fmt.Printf("\nThreshold Sig1 V1: %x\n", sig1V1.Bytes())
 	fmt.Printf("Threshold Sig2 V1: %x\n", sig2V1.Bytes())
 	fmt.Printf("Threshold Sig3 V1: %x\n\n", sig3V1.Bytes())
 
 	sigV1, _ := ted25519.Aggregate([]*ted25519.PartialSignature{sig1V1, sig3V1}, &config)
-	fmt.Printf("Rebuild signature with share 1 and 3: %x\n", sigV1)
+	fmt.Printf("Rebuild signature with share 1 and 3: %x\n\n", sigV1)
 	
-	entry.PubKey = pub.Bytes()
+	
+	
+	pubKeyData, _ := proto.Marshal(pubKey)
+	entry.PubKey = pubKeyData
 	
 	entry.SignatureV1 = sigV1
 	
 	entrydata, _ := proto.Marshal(entry)
+	fmt.Printf("Entry: %s\n", entry.String())
 	fmt.Printf("Signed Entry: %x\n", entrydata)
 
     /*
